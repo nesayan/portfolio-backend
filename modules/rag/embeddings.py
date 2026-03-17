@@ -1,6 +1,5 @@
 import os
 from pathlib import Path
-from langchain.embeddings import init_embeddings
 from langchain_core.documents import Document
 from langchain_community.document_loaders.directory import DirectoryLoader
 from langchain_text_splitters.character import RecursiveCharacterTextSplitter
