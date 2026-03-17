@@ -21,3 +21,8 @@ groq
 langchain
 langchain-text-splitters
 langchain-community
+
+# Dev / Testing
+ruff
+pytest
+httpx
