@@ -44,4 +44,5 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           PRIVATE_PASSWORD: ${{ secrets.PRIVATE_PASSWORD }}
           DATA_DIR: data
+          PYTHONPATH: ${{ github.workspace }}
         run: pytest tests/ -v
