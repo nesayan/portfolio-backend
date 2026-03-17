@@ -11,7 +11,7 @@ from api.schemas.rag import (
 __all__ = [
             "RagQueryRequest",
             "RagQueryResponse",
-            "GetEmbeddingsResponse",
-            "CreateEmbeddingsResponse",
+            "GetEmbeddingsResponseList",
+            "CreateEmbeddingsResponseList",
             "EmbeddingResponse"
         ]

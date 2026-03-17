@@ -1,12 +1,12 @@
-from dotenv import load_dotenv
-load_dotenv("core/.env")
 
 import os
+from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 from pathlib import Path
-
 from fastapi import FastAPI
-from api import api_router
+
+load_dotenv("core/.env")
+from api import api_router  # noqa: E402
 
 
 def setup():
