@@ -1,4 +1,4 @@
-import os
+
 from pathlib import Path
 from langchain_core.documents import Document
 from langchain_community.document_loaders.directory import DirectoryLoader
@@ -6,11 +6,12 @@ from langchain_text_splitters.character import RecursiveCharacterTextSplitter
 from langchain_huggingface.embeddings import HuggingFaceEmbeddings
 
 from api.schemas import EmbeddingResponse
+from core.config import settings
 
 
 class EmbeddingService:
     embedding_model: HuggingFaceEmbeddings = HuggingFaceEmbeddings(
-        model_name=os.getenv("EMBEDDING_MODEL"),
+        model_name=settings.EMBEDDING_MODEL,
         model_kwargs={"device": "cpu"},
         encode_kwargs={"normalize_embeddings": False},
         show_progress=False,

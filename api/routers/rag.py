@@ -1,19 +1,20 @@
 from pathlib import Path
-import os
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from api.dependencies import verify_basic_auth
+from fastapi import APIRouter, HTTPException, UploadFile, File
 from api.schemas import GetEmbeddingsResponseList, CreateEmbeddingsResponseList
 
 from modules.rag.embeddings import EmbeddingService
 from modules.rag.vector_store import VectorDBService
 
-DATA_DIR = Path(os.getenv("DATA_DIR"))
+from core.config import settings
+
+DATA_DIR = Path(settings.DATA_DIR)
 
 
 router = APIRouter(prefix="/rag", tags=["rag"])
 
 @router.post("/get_embeddings", response_model=GetEmbeddingsResponseList)
-async def get_embeddings(file: UploadFile = File(...), _: str = Depends(verify_basic_auth)):
+async def get_embeddings(file: UploadFile = File(...)):
+    '''Endpoint to get embeddings for a given PDF file without storing them in the vector database.'''
     if file.content_type != "application/pdf":
         raise HTTPException(status_code=400, detail="Only PDF files are accepted")
 
@@ -30,7 +31,8 @@ async def get_embeddings(file: UploadFile = File(...), _: str = Depends(verify_b
 
 
 @router.post("/create_embeddings", response_model=CreateEmbeddingsResponseList)
-async def create_embeddings(file: UploadFile = File(...), _: str = Depends(verify_basic_auth)):
+async def create_embeddings(file: UploadFile = File(...)):
+    '''Endpoint to create embeddings for a given PDF file and store them in the vector database.'''
     if file.content_type != "application/pdf":
         raise HTTPException(status_code=400, detail="Only PDF files are accepted")
 

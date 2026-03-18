@@ -1,16 +1,14 @@
 
-import os
-from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import FastAPI
 
-load_dotenv("core/.env")
-from api import api_router  # noqa: E402
+from core.config import settings
+from api import api_router  
 
 
 def setup():
-    Path(os.getenv("DATA_DIR")).mkdir(parents=True, exist_ok=True)
+    Path(settings.DATA_DIR).mkdir(parents=True, exist_ok=True)
 
 
 @asynccontextmanager
