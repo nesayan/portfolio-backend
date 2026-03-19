@@ -26,3 +26,6 @@ langchain-community
 ruff
 pytest
 httpx
+
+# For MCP
+fastmcp

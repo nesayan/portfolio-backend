@@ -44,7 +44,7 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           DATA_DIR: data
           PYTHONPATH: ${{ github.workspace }}
-        run: pytest tests/ -v
+        run: pytest tests/ -v -s
 
   docker:
     runs-on: ubuntu-latest
