@@ -1,9 +1,12 @@
 from pathlib import Path
+from typing import Literal
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from api.schemas import GetEmbeddingsResponseList, CreateEmbeddingsResponseList
 
 from modules.rag.embeddings import EmbeddingService
 from modules.rag.vector_store import VectorDBService
+
+from mcp_server.tools.retrieval_tool import retrieval_tool
 
 from core.config import settings
 
@@ -42,11 +45,24 @@ async def create_embeddings(file: UploadFile = File(...)):
     contents = await file.read()
     dest.write_bytes(contents)
 
-    documents = await EmbeddingService.aload_documents(document_folder=DATA_DIR, perform_chunk=True)
-
-    Path(dest).unlink()
+    try:
+        documents = await EmbeddingService.aload_documents(document_folder=DATA_DIR, perform_chunk=True, chunk_size=200, chunk_overlap=50)
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    finally:
+        Path(dest).unlink()
 
     _ids = await VectorDBService().aupsert_documents(documents=documents)
 
     return CreateEmbeddingsResponseList(embedding_ids=_ids, count=len(_ids))
 
+@router.post("/search")
+async def search(query: str, top_k: int = 5, score_threshold: float = 0.5, search_type: Literal["similarity", "similarity_score_threshold", "mmr"] = "similarity_score_threshold", lambda_mult: float = 0.5):
+    '''Endpoint to search for relevant documents in the vector database based on a query.'''
+    try:
+        results = await retrieval_tool(query=query, top_k=top_k, score_threshold=score_threshold, search_type=search_type, lambda_mult=lambda_mult)
+        return {"tool_results": results}
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

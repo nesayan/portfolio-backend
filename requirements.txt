@@ -21,6 +21,7 @@ groq
 langchain
 langchain-text-splitters
 langchain-community
+langchain-mcp-adapters
 
 # Dev / Testing
 ruff

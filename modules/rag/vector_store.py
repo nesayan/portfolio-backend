@@ -68,7 +68,7 @@ class VectorDBService:
 
         return await store.aadd_documents(documents, ids=ids)
     
-    async def search(self, query: str, search_type: Literal["similarity", "similarity_score_threshold", "mmr"] = "similarity", score_threshold: float = 0.7, top_k: int = 5, lambda_mult: float = 0.5) -> list[Document]:
+    async def search(self, query: str, search_type: Literal["similarity", "similarity_score_threshold", "mmr"] = "similarity_score_threshold", score_threshold: float = 0.7, top_k: int = 5, lambda_mult: float = 0.5) -> list[Document]:
         '''Asynchronously searches the vector database for documents relevant to the query.'''
 
         if not self._collection_exists(settings.VECTOR_COLLECTION):
@@ -77,15 +77,34 @@ class VectorDBService:
         if search_type not in ["similarity", "similarity_score_threshold", "mmr"]:
             raise ValueError(f"Invalid search type '{search_type}'. Valid options are 'similarity', 'similarity_score_threshold', and 'mmr'.")
         
-        if search_type == "similarity":
-            search_kwargs = {"k": top_k}
-        elif search_type == "similarity_score_threshold":
-            search_kwargs = {"k": top_k, "score_threshold": score_threshold}
-        else:
-            search_kwargs = {"k": top_k, "fetch_k": 20, "lambda_mult": lambda_mult}
+        store = self._get_vector_store()
 
-        
-        retriever = self._get_retriever(search_type=search_type, search_kwargs=search_kwargs)
-        return await retriever.ainvoke(query)
+        if search_type == "similarity":
+            results = await store.asimilarity_search_with_score(query, k=top_k)
+            results.sort(key=lambda x: x[1], reverse=True)
+            docs = []
+            for doc, score in results:
+                doc.id = doc.metadata.get("_id")
+                doc.metadata["score"] = round(score, 4)
+                docs.append(doc)
+            return docs
+
+        elif search_type == "similarity_score_threshold":
+            results = await store.asimilarity_search_with_score(query, k=top_k)
+            results.sort(key=lambda x: x[1], reverse=True)
+            docs = []
+            for doc, score in results:
+                if score < score_threshold:
+                    continue
+                doc.id = doc.metadata.get("_id")
+                doc.metadata["score"] = round(score, 4)
+                docs.append(doc)
+            return docs
+
+        else:  # mmr
+            docs = await store.amax_marginal_relevance_search(query, k=top_k, fetch_k=20, lambda_mult=lambda_mult)
+            for doc in docs:
+                doc.id = doc.metadata.get("_id")
+            return docs
         
 
