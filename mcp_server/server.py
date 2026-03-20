@@ -6,7 +6,7 @@ from mcp_server.tools.retrieval_tool import retrieval_tool
 mcp = FastMCP(__name__)
 
 tools = [
-    Tool.from_function(retrieval_tool, name="retrieval_tool", description="A tool function that takes a query as input and returns relevant information retrieved from the vector database.")
+    Tool.from_function(retrieval_tool, name="retrieval_tool")
 ]
 
 for tool in tools:

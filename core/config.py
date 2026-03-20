@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     def load_into_env(self) -> "Settings":
         # Only export what third-party libs need from os.environ
         os.environ.setdefault("HF_TOKEN", self.HF_TOKEN)
+        os.environ.setdefault("GROQ_API_KEY", self.GROQ_API_KEY)
         return self
 
 

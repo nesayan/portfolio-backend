@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastmcp.utilities.lifespan import combine_lifespans
 
 from core.config import settings
-from api import api_router
+from api.routers import base, rag, agent
 
 from mcp_server.server import mcp
 
@@ -30,7 +30,9 @@ app = FastAPI(
     lifespan=combine_lifespans(lifespan, mcp_app.lifespan),
 )
 
-app.include_router(api_router)
+app.include_router(base.router)
+app.include_router(rag.router)
+app.include_router(agent.router)
 
 app.mount("/mcp", mcp_app)
 

@@ -68,7 +68,7 @@ class VectorDBService:
 
         return await store.aadd_documents(documents, ids=ids)
     
-    async def search(self, query: str, search_type: Literal["similarity", "similarity_score_threshold", "mmr"] = "similarity_score_threshold", score_threshold: float = 0.5, top_k: int = 5, lambda_mult: float = 0.5) -> list[Document]:
+    async def search(self, query: str, search_type: Literal["similarity", "similarity_score_threshold", "mmr"] = "similarity_score_threshold", score_threshold: float = 0.5, top_k: int = 10, lambda_mult: float = 0.5) -> list[Document]:
         '''Asynchronously searches the vector database for documents relevant to the query.'''
 
         if not self._collection_exists(settings.VECTOR_COLLECTION):

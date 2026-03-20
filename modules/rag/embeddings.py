@@ -5,7 +5,7 @@ from langchain_community.document_loaders.directory import DirectoryLoader
 from langchain_text_splitters.character import RecursiveCharacterTextSplitter
 from langchain_huggingface.embeddings import HuggingFaceEmbeddings
 
-from api.schemas import EmbeddingResponse
+from api.schemas.rag import EmbeddingResponse
 from core.config import settings
 
 

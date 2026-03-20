@@ -1,8 +1,7 @@
 ''' LangGraph agent that connects to MCP server for tools'''
 
 from langgraph.graph import StateGraph, START, END
-from langchain.tools import ToolNode
-from langchain.tools.tool_node import tools_condition
+from langgraph.prebuilt import ToolNode, tools_condition
 from typing_extensions import Annotated, TypedDict
 from langgraph.graph.message import add_messages
 from langgraph.checkpoint.memory import InMemorySaver
@@ -10,35 +9,55 @@ from langgraph.checkpoint.memory import InMemorySaver
 from core.config import settings
 from langchain_groq.chat_models import ChatGroq
 from langchain_mcp_adapters.client import MultiServerMCPClient
+from langchain_core.messages import SystemMessage
+
+SYSTEM_PROMPT = """
+You are an assistant for a portfolio website. Your task is to help users understand the candidate's profile based on the information provided.
+You have access to a tools by MCP server. Prefer to use tools you are provided with.
+Instructions:
+    1. If it is a general question, no need to use tools, answer based on the information you have.
+    2. If the question is specific and requires more information, use the retrieval tool to get the relevant information
+Output Instructions:
+    - Always answer in a professional manner, providing relevant information without unnecessary details.
+"""
 
 class State(TypedDict):
     messages: Annotated[list, add_messages]
-    query: str
-    answer: str
 
 
 _graph = None
 
 
-def build_graph():
+async def build_graph():
 
     mcp_client = MultiServerMCPClient(
         {
             "retrieval_mcp_server": {
                 "url": f"http://localhost:{settings.PORT}/mcp",
-                "transport": "streamable_http",
+                "transport": "http",
             }
         }
     )
-    tools = mcp_client.get_tools()
+    tools = await mcp_client.get_tools()
 
-    def llm_with_tools():
-        llm = ChatGroq(model=settings.LLM_MODEL, temperature=0, streaming=True)
-        return llm.bind_tools(tools=tools)
+    # LLM Node - Langgraph invokes it internally. For custom function node, make sure to return the invoke result
+    llm = ChatGroq(model=settings.LLM_MODEL, temperature=0, streaming=True)
+    llm_with_tools = llm.bind_tools(tools=tools)
 
+    async def llm_node(state: State):
+        messages = state["messages"]
+        if not messages or not isinstance(messages[0], SystemMessage):
+            messages = [SystemMessage(content=SYSTEM_PROMPT)] + messages
+        response = await llm_with_tools.ainvoke(messages)
+        return {"messages": [response]}
+
+    # Tool Node
+    tools_node = ToolNode(tools)
+
+    # Workflow - defines the flow of the agent
     workflow = StateGraph(State)
-    workflow.add_node("llm", llm_with_tools)
-    workflow.add_node("tools", ToolNode(tools))
+    workflow.add_node("llm", llm_node)
+    workflow.add_node("tools", tools_node)
 
     workflow.add_edge(START, "llm")
     workflow.add_conditional_edges(
@@ -53,11 +72,11 @@ def build_graph():
     return graph
 
 
-def get_graph():
+async def get_graph():
     """Lazy init — builds the graph on first call, when the app is already serving."""
     global _graph
     if _graph is None:
-        _graph = build_graph()
+        _graph = await build_graph()
     return _graph
 
 

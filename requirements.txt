@@ -24,6 +24,7 @@ langchain-community
 langchain-mcp-adapters
 langchain-groq
 langgraph
+ag-ui-protocol
 
 # Dev / Testing
 ruff
