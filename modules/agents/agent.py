@@ -7,7 +7,6 @@ from typing_extensions import Annotated, TypedDict
 from langgraph.graph.message import add_messages
 from langgraph.checkpoint.memory import InMemorySaver
 
-import os
 from core.config import settings
 from langchain_groq.chat_models import ChatGroq
 from langchain_mcp_adapters.client import MultiServerMCPClient
@@ -18,37 +17,47 @@ class State(TypedDict):
     answer: str
 
 
+_graph = None
+
+
 def build_graph():
 
     mcp_client = MultiServerMCPClient(
         {
             "retrieval_mcp_server": {
-                "url": f"http://localhost:{os.getenv('PORT')}/mcp",
+                "url": f"http://localhost:{settings.PORT}/mcp",
                 "transport": "streamable_http",
             }
         }
     )
-    tools=[]
+    tools = mcp_client.get_tools()
 
     def llm_with_tools():
         llm = ChatGroq(model=settings.LLM_MODEL, temperature=0, streaming=True)
         return llm.bind_tools(tools=tools)
 
-    
+    workflow = StateGraph(State)
+    workflow.add_node("llm", llm_with_tools)
+    workflow.add_node("tools", ToolNode(tools))
 
-
-    graph = StateGraph(State)
-    graph.add_node("llm", llm_with_tools)
-    graph.add_node("tools", ToolNode(tools))
-
-    graph.add_edge(START, "llm")
-    graph.add_conditional_edges(
+    workflow.add_edge(START, "llm")
+    workflow.add_conditional_edges(
         "llm",
         tools_condition,  # Routes to "tools" or "__end__"
         {"tools": "tools", "__end__": END}
     )
-    graph.add_edge("tools", "llm")
+    workflow.add_edge("tools", "llm")
 
-    return graph.compile(checkpointer=InMemorySaver())
+    graph = workflow.compile(checkpointer=InMemorySaver())
+
+    return graph
+
+
+def get_graph():
+    """Lazy init — builds the graph on first call, when the app is already serving."""
+    global _graph
+    if _graph is None:
+        _graph = build_graph()
+    return _graph
 
 

@@ -19,12 +19,16 @@ class Settings(BaseSettings):
     EMBEDDING_PROVIDER: str = ""
     HF_TOKEN: str = ""
     DATA_DIR: str = ""
+    PORT: str = "8001"
 
     @model_validator(mode="after")
     def check_non_blank(self) -> "Settings":
         blank_vars = [
-            field for field in Settings.model_fields if getattr(self, field) == ""
+            field
+            for field in Settings.model_fields
+            if getattr(self, field) == "" and Settings.model_fields[field].default == ""
         ]
+        
         if blank_vars:
             raise ValueError(
                 "The following environment variables are not set: "
