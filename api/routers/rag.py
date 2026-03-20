@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Literal
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from api.schemas import GetEmbeddingsResponseList, CreateEmbeddingsResponseList
 
@@ -60,7 +59,7 @@ async def create_embeddings(file: UploadFile = File(...)):
 async def search(query: str):
     '''Endpoint to search for relevant documents in the vector database based on a query.'''
     try:
-        results = await retrieval_tool(query=query, top_k=top_k, score_threshold=score_threshold, search_type=search_type, lambda_mult=lambda_mult)
+        results = await retrieval_tool(query=query)
         return {"tool_results": results}
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))

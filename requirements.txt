@@ -9,7 +9,7 @@ uvicorn[standard]>=0.30.0
 python-multipart
 
 # Vector Database and Embeddings
-qdrant-client[fastembed]
+qdrant-client
 langchain-huggingface
 sentence-transformers
 langchain_qdrant
