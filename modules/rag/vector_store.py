@@ -8,10 +8,12 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams
 
 from core.config import settings
+from core.logger import logger
 
 class VectorDBService:
     def __init__(self):
         self.client = QdrantClient(url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY)
+        self.create_collection_if_not_exists()
 
     def _get_vector_store(self, collection_name: Optional[str] = None) -> QdrantVectorStore:
         '''Returns an instance of QdrantVectorStore connected to the specified collection in the vector database.'''
@@ -19,13 +21,14 @@ class VectorDBService:
         if not collection_name:
             collection_name = settings.VECTOR_COLLECTION
 
+        logger.info(f"Getting vector store for collection '{collection_name}'")
         return QdrantVectorStore(
             client=self.client,
             collection_name= collection_name,
-            embedding=EmbeddingService.embedding_model,
+            embedding=EmbeddingService._get_model()
         )
     
-    def _get_retriever(self, collection_name: Optional[str] = None, search_type: Literal["similarity", "similarity_score_threshold", "mmr"] = "similarity", search_kwargs: Optional[dict] = {"k": 5}):
+    def _get_retriever(self, collection_name: Optional[str] = None, search_type: Literal["similarity", "similarity_score_threshold", "mmr"] = "similarity", search_kwargs: Optional[dict] = {"k": 5}, force_recreate: bool = False):
         '''Returns a retriever instance for the specified collection in the vector database.'''
 
         if not collection_name:
@@ -45,7 +48,7 @@ class VectorDBService:
         is_collection_exist = self._collection_exists(settings.VECTOR_COLLECTION)
 
         if not is_collection_exist:
-            size = EmbeddingService.embedding_model._client.get_sentence_embedding_dimension()
+            size = len(EmbeddingService._get_model().embed_query("dimension check"))
             distance = Distance.COSINE
 
             self.client.create_collection(
@@ -53,13 +56,30 @@ class VectorDBService:
                 vectors_config=VectorParams(size=size, distance=distance),
             )
 
-    async def aupsert_documents(self, documents: list[Document]) -> list[str]:
-        '''Asynchronously upserts documents into the vector database after generating embeddings.'''
+    def force_recreate_collection(self, collection_name: Optional[str] = None) -> None:
+        '''Deletes the specified collection from the vector database if it exists, and creates a new one.'''
 
+        if not collection_name:
+            collection_name = settings.VECTOR_COLLECTION
+
+        if self._collection_exists(collection_name):
+            logger.info(f"Force recreate enabled. Deleting existing collection '{collection_name}'")
+            self.client.delete_collection(collection_name=collection_name)
+        
         self.create_collection_if_not_exists()
 
+    async def aupsert_documents(self, documents: list[Document], collection_name: Optional[str] = None, force_recreate: bool = False) -> list[str]:
+        '''Asynchronously upserts documents into the vector database after generating embeddings.'''
 
-        store = self._get_vector_store()
+        collection_name = collection_name or settings.VECTOR_COLLECTION
+
+        if force_recreate and self._collection_exists(collection_name):
+            self.force_recreate_collection(collection_name)
+
+        try:
+            store = self._get_vector_store()
+        except Exception:
+            raise
 
         ids = [
             str(uuid5(NAMESPACE_URL, f"{doc.metadata.get('source', '')}:{doc.page_content}"))
@@ -68,7 +88,7 @@ class VectorDBService:
 
         return await store.aadd_documents(documents, ids=ids)
     
-    async def search(self, query: str, search_type: Literal["similarity", "similarity_score_threshold", "mmr"] = "similarity_score_threshold", score_threshold: float = 0.5, top_k: int = 10, lambda_mult: float = 0.5) -> list[Document]:
+    async def search(self, query: str, search_type: Literal["similarity", "similarity_score_threshold", "mmr"] = "similarity", score_threshold: float = 0.5, top_k: int = 10, lambda_mult: float = 0.5) -> list[Document]:
         '''Asynchronously searches the vector database for documents relevant to the query.'''
 
         if not self._collection_exists(settings.VECTOR_COLLECTION):

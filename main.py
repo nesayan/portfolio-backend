@@ -6,6 +6,7 @@ from fastmcp.utilities.lifespan import combine_lifespans
 from fastapi.middleware.cors import CORSMiddleware
 
 from core.config import settings
+from core.logger import logger
 from api.routers import base, rag, agent
 
 from mcp_server.server import mcp
@@ -18,9 +19,11 @@ def setup_environment():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_environment()
+    settings.load_llm()
+    settings.load_embedder()
     yield
 
-    print("Shutting down...")
+    logger.info("Shutting down...")
 
 
 mcp_app = mcp.http_app(path='/')

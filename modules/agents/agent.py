@@ -7,7 +7,6 @@ from langgraph.graph.message import add_messages
 from langgraph.checkpoint.memory import InMemorySaver
 
 from core.config import settings
-from langchain_groq.chat_models import ChatGroq
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain_core.messages import SystemMessage
 
@@ -20,6 +19,7 @@ Instructions:
 Output Instructions:
     - Always answer in a professional manner, providing relevant information without unnecessary details.
 """
+
 
 class State(TypedDict):
     messages: Annotated[list, add_messages]
@@ -40,8 +40,7 @@ async def build_graph():
     )
     tools = await mcp_client.get_tools()
 
-    # LLM Node - Langgraph invokes it internally. For custom function node, make sure to return the invoke result
-    llm = ChatGroq(model=settings.LLM_MODEL, temperature=0, streaming=True)
+    llm = settings.get_llm(provider=settings.DEFAULT_LLM_PROVIDER)
     llm_with_tools = llm.bind_tools(tools=tools)
 
     async def llm_node(state: State):

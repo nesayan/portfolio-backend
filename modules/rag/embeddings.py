@@ -3,19 +3,15 @@ from pathlib import Path
 from langchain_core.documents import Document
 from langchain_community.document_loaders.directory import DirectoryLoader
 from langchain_text_splitters.character import RecursiveCharacterTextSplitter
-from langchain_huggingface.embeddings import HuggingFaceEmbeddings
 
 from api.schemas.rag import EmbeddingResponse
 from core.config import settings
 
 
 class EmbeddingService:
-    embedding_model: HuggingFaceEmbeddings = HuggingFaceEmbeddings(
-        model_name=settings.EMBEDDING_MODEL,
-        model_kwargs={"device": "cpu"},
-        encode_kwargs={"normalize_embeddings": False},
-        show_progress=False,
-    )
+    @staticmethod
+    def _get_model():
+        return settings.get_embedder(provider=settings.DEFAULT_EMBEDDING_PROVIDER)
 
     @staticmethod
     async def aload_documents(document_folder: Path, perform_chunk: bool = True, chunk_size: int = 1000, chunk_overlap: int = 200) -> list[Document]:
@@ -69,7 +65,7 @@ class EmbeddingService:
         documents = await EmbeddingService.aload_documents(document_folder, perform_chunk=perform_chunk, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
 
         texts = [doc.page_content for doc in documents]
-        embeddings = await EmbeddingService.embedding_model.aembed_documents(texts)
+        embeddings = await EmbeddingService._get_model().aembed_documents(texts)
 
         return [EmbeddingResponse(embedding=e) for e in embeddings]
     
@@ -80,6 +76,6 @@ class EmbeddingService:
         documents = EmbeddingService.load_documents(document_folder, perform_chunk=perform_chunk, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
 
         texts = [doc.page_content for doc in documents]
-        embeddings = EmbeddingService.embedding_model.embed_documents(texts)
+        embeddings = EmbeddingService._get_model().embed_documents(texts)
 
         return [EmbeddingResponse(embedding=e) for e in embeddings]

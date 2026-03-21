@@ -23,6 +23,7 @@ langchain-text-splitters
 langchain-community
 langchain-mcp-adapters
 langchain-groq
+langchain-cohere
 langgraph
 ag-ui-protocol
 
