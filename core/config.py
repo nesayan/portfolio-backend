@@ -29,15 +29,15 @@ class Settings(BaseSettings):
 
     GROQ_API_KEY: str = ""
     COHERE_API_KEY: str = ""
-    DEFAULT_LLM_PROVIDER: str = ""
+    DEFAULT_LLM_PROVIDER: str = "cohere"
     LLM_CONFIG: dict[str, dict] = DEFAULT_LLM_CONFIG
-    DEFAULT_EMBEDDING_PROVIDER: str = ""
+    DEFAULT_EMBEDDING_PROVIDER: str = "cohere"
     EMBEDDING_CONFIG: dict[str, dict] = DEFAULT_EMBEDDING_CONFIG
     QDRANT_URL: str = ""
     QDRANT_API_KEY: str = ""
     VECTOR_COLLECTION: str = ""
     HF_TOKEN: str = ""
-    DATA_DIR: str = ""
+    DATA_DIR: str = "data"
     PORT: str = "8001"
     available_llms: dict = Field(default_factory=dict, exclude=True)
     available_embedders: dict = Field(default_factory=dict, exclude=True)

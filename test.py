@@ -1,20 +1,20 @@
-# from modules.rag.embeddings import EmbeddingService
-# from modules.rag.vector_store import VectorDBService
-# from dotenv import load_dotenv
+from modules.rag.embeddings import EmbeddingService
+from modules.rag.vector_store import VectorDBService
+from dotenv import load_dotenv
 import asyncio
 import json
 import httpx
 
-# load_dotenv("core/.env")
+load_dotenv("core/.env")
 
-# def test_embedding_service():
-#     embeddings = EmbeddingService.embed(document_folder="data")
-#     return embeddings
+def test_embedding_service():
+    embeddings = EmbeddingService.embed(document_folder="data")
+    return embeddings
 
-# async def test_vector_store():
-#     documents = await EmbeddingService.aload_documents(document_folder="data", perform_chunk=True)
-#     result = await VectorDBService().aupsert_documents(documents=documents)
-#     return result
+async def test_vector_store():
+    documents = await EmbeddingService.aload_documents(document_folder="data", perform_chunk=True)
+    result = await VectorDBService().aupsert_documents(documents=documents)
+    return result
 
 
 def parse_sse_event(line: str) -> dict | None:
@@ -44,9 +44,11 @@ async def test_agent_streaming(base_url: str = "http://localhost:8001", query: s
 
 if __name__ == "__main__":
 
+    # Test agent streaming response
     query = """
     Tell the story of Hindu mythology Mahabharata in 300 words. Include special events. DO NOT use previous message to make answer.
     """
 
     asyncio.run(test_agent_streaming(query=query, session_id="test-session-001"))
 
+    
