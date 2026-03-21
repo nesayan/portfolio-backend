@@ -2,9 +2,13 @@ name: CI
 
 on:
   push:
-    branches: [develop]
+    branches: [develop, main]
   pull_request:
-    branches: [develop]
+    branches: [develop, main]
+
+env:
+  IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/portfolio-backend
+  TAG_PREFIX: ${{ github.ref == 'refs/heads/develop' && 'dev-' || '' }}
 
 jobs:
   lint:
@@ -49,7 +53,7 @@ jobs:
   docker:
     runs-on: ubuntu-latest
     needs: [lint, test]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    if: github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
 
@@ -66,9 +70,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/portfolio-backend:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/portfolio-backend:${{ github.sha }}
+          tags: ${{ env.IMAGE }}:${{ env.TAG_PREFIX }}latest
 
       - name: Docker build summary
         run: |
@@ -76,6 +78,4 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Image ID:** ${{ steps.build.outputs.imageid }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Digest:** ${{ steps.build.outputs.digest }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Tags:**" >> $GITHUB_STEP_SUMMARY
-          echo "  - \`${{ secrets.DOCKERHUB_USERNAME }}/portfolio-backend:latest\`" >> $GITHUB_STEP_SUMMARY
-          echo "  - \`${{ secrets.DOCKERHUB_USERNAME }}/portfolio-backend:${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag:** \`${{ env.IMAGE }}:${{ env.TAG_PREFIX }}latest\`" >> $GITHUB_STEP_SUMMARY
