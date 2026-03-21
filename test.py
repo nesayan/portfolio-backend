@@ -1,4 +1,3 @@
-import pytest
 
 from modules.rag.embeddings import EmbeddingService
 from modules.rag.vector_store import VectorDBService
@@ -25,7 +24,6 @@ def parse_sse_event(line: str) -> dict | None:
         return json.loads(line[6:])
     return None
 
-@pytest.mark.skip(reason="This test requires API keys and .env files are not pushed to repo for security reasons.")
 async def test_agent_streaming(base_url: str = "http://localhost:8001", query: str = "Tell me about Sayan", session_id: str = "test-session-001"):
     """Test streaming response from the agent endpoint, parsing ag-ui SSE events."""
     url = f"{base_url}/agent/query"
