@@ -8,10 +8,13 @@ from api.schemas.rag import (
     EmbeddingResponse
     )
 
+from api.schemas.agent import AgentQueryRequest
+
 __all__ = [
             "RagQueryRequest",
             "RagQueryResponse",
             "GetEmbeddingsResponseList",
             "CreateEmbeddingsResponseList",
-            "EmbeddingResponse"
+            "EmbeddingResponse",
+            "AgentQueryRequest"
         ]
