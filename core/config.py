@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     EMBEDDING_CONFIG: dict[str, dict] = DEFAULT_EMBEDDING_CONFIG
     QDRANT_URL: str = ""
     QDRANT_API_KEY: str = ""
-    VECTOR_COLLECTION: str = ""
+    VECTOR_COLLECTION: str = "portfolio"
     HF_TOKEN: str = ""
     DATA_DIR: str = "data"
     PORT: str = "8001"
