@@ -1,23 +1,13 @@
-import os
-from pydantic import model_validator, Field
+from pathlib import Path
+from pydantic import PrivateAttr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from langchain_groq.chat_models import ChatGroq
 from langchain_cohere import ChatCohere, CohereEmbeddings
-from langchain_huggingface.embeddings import HuggingFaceEmbeddings
+from langchain_openai import AzureChatOpenAI  # noqa: F401
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.embeddings import Embeddings
 
 from core.logger import logger
-
-DEFAULT_LLM_CONFIG: dict[str, dict] = {
-    "cohere": {"cls": ChatCohere, "config": {"model": "command-a-03-2025", "temperature": 0, "streaming": True}},
-    "groq": {"cls": ChatGroq, "config": {"model": "llama-3.1-8b-instant", "temperature": 0, "streaming": True}},
-}
-
-DEFAULT_EMBEDDING_CONFIG: dict[str, dict] = {
-    "cohere": {"cls": CohereEmbeddings, "config": {"model": "embed-english-v3.0"}},
-    "huggingface": {"cls": HuggingFaceEmbeddings, "config": {"model_name": "BAAI/bge-small-en-v1.5", "model_kwargs": {"device": "cpu"}, "encode_kwargs": {"normalize_embeddings": False}, "show_progress": False}},
-}
 
 
 class Settings(BaseSettings):
@@ -27,115 +17,142 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    # Provider API Keys (optional — add new ones here, they auto-export to os.environ)
     GROQ_API_KEY: str = ""
     COHERE_API_KEY: str = ""
-    DEFAULT_LLM_PROVIDER: str = "cohere"
-    LLM_CONFIG: dict[str, dict] = DEFAULT_LLM_CONFIG
-    DEFAULT_EMBEDDING_PROVIDER: str = "cohere"
-    EMBEDDING_CONFIG: dict[str, dict] = DEFAULT_EMBEDDING_CONFIG
+
+    # Azure OpenAI Configurations
+    AZURE_OPENAI_API_KEY: str = ""
+    AZURE_OPENAI_ENDPOINT: str = ""
+    AZURE_OPENAI_DEPLOYMENT: str = "gpt-4o-mini"
+    AZURE_OPENAI_API_VERSION: str = "2024-12-01-preview"
+
+    # Vector Database
     QDRANT_URL: str = ""
     QDRANT_API_KEY: str = ""
     VECTOR_COLLECTION: str = "portfolio"
-    HF_TOKEN: str = ""
+
+    # Other Configurations
     DATA_DIR: str = "data"
-    PORT: str = "8001"
-    available_llms: dict = Field(default_factory=dict, exclude=True)
-    available_embedders: dict = Field(default_factory=dict, exclude=True)
+    PORT: str = "80"
+
+    _models_cache: dict = PrivateAttr(default_factory=dict)
+
+    @property
+    def _providers(self) -> dict[str, dict]:
+        return {
+            "llm": {
+                "azure_openai": {
+                    "cls": AzureChatOpenAI,
+                    "kwargs": {
+                        "azure_deployment": self.AZURE_OPENAI_DEPLOYMENT,
+                        "temperature": 0,
+                        "streaming": True,
+                        "azure_endpoint": self.AZURE_OPENAI_ENDPOINT,
+                        "api_version": self.AZURE_OPENAI_API_VERSION,
+                        "api_key": self.AZURE_OPENAI_API_KEY,
+                    },
+                },
+                "cohere": {
+                    "cls": ChatCohere,
+                    "kwargs": {"model": "command-a-03-2025", "temperature": 0, "streaming": True, "cohere_api_key": self.COHERE_API_KEY},
+                },
+                "groq": {
+                    "cls": ChatGroq,
+                    "kwargs": {"model": "llama-3.1-8b-instant", "temperature": 0, "streaming": True, "groq_api_key": self.GROQ_API_KEY},
+                },
+            },
+            "embedding": {
+                "cohere": {
+                    "cls": CohereEmbeddings,
+                    "kwargs": {"model": "embed-english-v3.0", "cohere_api_key": self.COHERE_API_KEY},
+                },
+            },
+        }
 
     @model_validator(mode="after")
-    def check_non_blank(self) -> "Settings":
-        blank_vars = [
-            field
-            for field in Settings.model_fields
-            if getattr(self, field) == "" and Settings.model_fields[field].default == ""
-        ]
+    def _validate_qdrant(self) -> "Settings":
+        if not self.QDRANT_URL or not self.QDRANT_API_KEY:
+            raise ValueError(
+                "QDRANT_URL and QDRANT_API_KEY are required. Set them in environment"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _setup_dirs(self) -> "Settings":
+        """Create required directories."""
+        Path(self.DATA_DIR).mkdir(parents=True, exist_ok=True)
+        return self
+
+    def _load_models(self):
+        """Load every models available in config and cache them."""
+        _available_models = []          # Only for logger to know which models were loaded successfully
+
+        for model_type, provider_details in self._providers.items():
+            self._models_cache.setdefault(model_type, {})
+            for provider, kwargs in provider_details.items():
+                try:
+                    cls = kwargs["cls"]
+                    model_kwargs = kwargs["kwargs"]
+
+                    # Skip if any kwarg value is blank (unset env var)
+                    missing = [k for k, v in model_kwargs.items() if v == ""]
+                    if missing:
+                        logger.warning(f"Skipping {provider} ({model_type}): missing values for {', '.join(missing)}. Set them in your .env file.")
+                        continue
+
+                    instance = cls(**model_kwargs)
+                    self._models_cache[model_type][provider] = instance
+
+                    model_name = model_kwargs.get("model") or model_kwargs.get("azure_deployment", "unknown")
+                    _available_models.append(f"{model_type}:{provider}:{model_name}")
+                except Exception as e:
+                    logger.error(f"Failed to load model {provider} for {model_type}: {(e)}")
+
+        logger.info(f"Loaded models: {_available_models}")
+
+        if not _available_models:
+            logger.warning("No models were loaded successfully. Check your configuration and API keys.")
+            raise ValueError("""No models loaded successfully. Atleast one llm & one embedder must be loaded for the application to function.""")
         
-        if blank_vars:
-            raise ValueError(
-                "The following environment variables are not set: "
-                f"{', '.join(blank_vars)}. "
-                "Please define them in your core/.env file."
-            )
-        return self
+        # Check that at least one model of each type is loaded
+        for model_type in self._models_cache:
+            if not self._models_cache[model_type]:
+                logger.warning(f"No models loaded for type '{model_type}'. At least one model of this type must be loaded for the application to function.")
+                raise ValueError(f"No models loaded for type '{model_type}'. At least one model of this type must be loaded for the application to function.")
+    
 
-    @model_validator(mode="after")
-    def load_into_env(self) -> "Settings":
-        os.environ.setdefault("HF_TOKEN", self.HF_TOKEN)
-        os.environ.setdefault("GROQ_API_KEY", self.GROQ_API_KEY)
-        os.environ.setdefault("COHERE_API_KEY", self.COHERE_API_KEY)
-        return self
+    def get_llm(self, provider: str | None = None) -> BaseChatModel:
 
-    def load_llm(self, provider: str = None) -> BaseChatModel:
-        """Load a specific provider's LLM, or try each in order and return the first that succeeds."""
-        if provider and provider not in self.LLM_CONFIG:
-            raise ValueError(
-                f"Unknown provider '{provider}'. "
-                f"Available: {list(self.LLM_CONFIG)}"
-            )
-        providers = {provider: self.LLM_CONFIG[provider]} if provider else self.LLM_CONFIG
+        if provider and provider in self._models_cache["llm"]:
+            return self._models_cache["llm"][provider]
+        
+        logger.warning(f"Requested LLM provider '{provider}' not found. Available providers: {list(self._models_cache['llm'].keys())}. Selecting first available provider.")
+        
+        # If no provider specified or requested provider not found, return the first available LLM
+        if self._models_cache["llm"]:
+            # Return the first available LLM if no provider specified
+            selected_llm = list(self._models_cache["llm"].values())[0]
+            logger.info(f"Selected LLM: {selected_llm}")
+            return selected_llm
+        else:
+            raise ValueError("No LLM providers are configured.")
 
-        for provider, metadata in providers.items():
-            cls = metadata.get("cls")
-            if not cls:
-                logger.warning("No 'cls' in config for provider '%s', skipping.", provider)
-                continue
-            try:
-                self.available_llms[provider] = cls(**metadata.get("config", {}))
-            except Exception as e:
-                logger.warning("Cannot initialize provider '%s', skipped — %s", provider, e)
-                continue
 
-        if self.available_llms:
-            logger.info("Successfully loaded LLM providers: %s", list(self.available_llms))
-            return list(self.available_llms.values())[0]
-
-        raise ValueError(f"No usable LLM provider. Tried: {list(providers)}")
-
-    def load_embedder(self, provider: str = None) -> Embeddings:
-        """Load a specific embedding provider, or try each in order and return the first that succeeds."""
-        if provider and provider not in self.EMBEDDING_CONFIG:
-            raise ValueError(
-                f"Unknown embedding provider '{provider}'. "
-                f"Available: {list(self.EMBEDDING_CONFIG)}"
-            )
-        providers = {provider: self.EMBEDDING_CONFIG[provider]} if provider else self.EMBEDDING_CONFIG
-
-        for name, metadata in providers.items():
-            cls = metadata.get("cls")
-            if not cls:
-                logger.warning("No 'cls' in embedding config for provider '%s', skipping.", name)
-                continue
-            try:
-                self.available_embedders[name] = cls(**metadata.get("config", {}))
-            except Exception as e:
-                logger.warning("Cannot initialize embedding provider '%s', skipped — %s", name, e)
-                continue
-
-        if self.available_embedders:
-            logger.info("Successfully loaded embedding providers: %s", list(self.available_embedders))
-            return list(self.available_embedders.values())[0]
-
-        raise ValueError(f"No usable embedding provider. Tried: {list(providers)}")
-
-    def get_llm(self, provider: str = None) -> BaseChatModel:
-        """Get an already-loaded LLM. Falls back to the first available."""
-        if provider:
-            if provider in self.available_llms:
-                return self.available_llms[provider]
-            raise ValueError(f"LLM provider '{provider}' not loaded. Loaded: {list(self.available_llms)}")
-        if self.available_llms:
-            return list(self.available_llms.values())[0]
-        raise ValueError("No LLMs loaded. Call load_llm() during startup first.")
-
-    def get_embedder(self, provider: str = None) -> Embeddings:
-        """Get an already-loaded embedder. Falls back to the first available."""
-        if provider:
-            if provider in self.available_embedders:
-                return self.available_embedders[provider]
-            raise ValueError(f"Embedding provider '{provider}' not loaded. Loaded: {list(self.available_embedders)}")
-        if self.available_embedders:
-            return list(self.available_embedders.values())[0]
-        raise ValueError("No embedders loaded. Call load_embedder() during startup first.")
+    def get_embedder(self, provider: str | None = None) -> Embeddings:
+        if provider and provider in self._models_cache["embedding"]:
+            return self._models_cache["embedding"][provider]
+        
+        logger.warning(f"Requested embedder provider '{provider}' not found. Available providers: {list(self._models_cache['embedding'].keys())}. Selecting first available provider.")
+        
+        # If no provider specified or requested provider not found, return the first available embedder
+        if self._models_cache["embedding"]:
+            # Return the first available embedder if no provider specified
+            selected_embedder = list(self._models_cache["embedding"].values())[0]
+            logger.info(f"Selected embedder: {selected_embedder.model}")
+            return selected_embedder
+        else:
+            raise ValueError("No embedder providers are configured.")
 
 
 settings = Settings()

@@ -10,6 +10,17 @@ from qdrant_client.models import Distance, VectorParams
 from core.config import settings
 from core.logger import logger
 
+_instance: "VectorDBService | None" = None
+
+
+def get_vector_db_service() -> "VectorDBService":
+    """Return a module-level singleton VectorDBService."""
+    global _instance
+    if _instance is None:
+        _instance = VectorDBService()
+    return _instance
+
+
 class VectorDBService:
     def __init__(self):
         self.client = QdrantClient(url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY)

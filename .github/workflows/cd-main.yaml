@@ -44,3 +44,15 @@ jobs:
           registryUrl: docker.io
           registryUsername: ${{ secrets.DOCKERHUB_USERNAME }}
           registryPassword: ${{ secrets.DOCKERHUB_TOKEN }}
+          environmentVariables: >
+            GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}
+            COHERE_API_KEY=${{ secrets.COHERE_API_KEY }}
+            AZURE_OPENAI_API_KEY=${{ secrets.AZURE_OPENAI_API_KEY }}
+            AZURE_OPENAI_ENDPOINT=${{ secrets.AZURE_OPENAI_ENDPOINT }}
+            AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
+            AZURE_OPENAI_API_VERSION=2024-12-01-preview
+            QDRANT_URL=${{ secrets.QDRANT_URL }}
+            QDRANT_API_KEY=${{ secrets.QDRANT_API_KEY }}
+            VECTOR_COLLECTION=portfolio
+            DATA_DIR=data
+            PORT=80

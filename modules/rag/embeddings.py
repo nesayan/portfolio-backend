@@ -11,7 +11,7 @@ from core.config import settings
 class EmbeddingService:
     @staticmethod
     def _get_model():
-        return settings.get_embedder(provider=settings.DEFAULT_EMBEDDING_PROVIDER)
+        return settings.get_embedder()
 
     @staticmethod
     async def aload_documents(document_folder: Path, perform_chunk: bool = True, chunk_size: int = 1000, chunk_overlap: int = 200) -> list[Document]:

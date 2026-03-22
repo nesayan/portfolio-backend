@@ -40,7 +40,7 @@ async def build_graph():
     )
     tools = await mcp_client.get_tools()
 
-    llm = settings.get_llm(provider=settings.DEFAULT_LLM_PROVIDER)
+    llm = settings.get_llm()
     llm_with_tools = llm.bind_tools(tools=tools)
 
     async def llm_node(state: State):

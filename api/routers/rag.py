@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, UploadFile, File
 from api.schemas import GetEmbeddingsResponseList, CreateEmbeddingsResponseList
 
 from modules.rag.embeddings import EmbeddingService
-from modules.rag.vector_store import VectorDBService
+from modules.rag.vector_store import get_vector_db_service
 
 from mcp_server.tools.retrieval_tool import retrieval_tool
 
@@ -61,7 +61,7 @@ async def create_embeddings(file: UploadFile = File(...), force_recreate: bool =
         Path(dest).unlink()
 
     try:
-        _ids = await VectorDBService().aupsert_documents(documents=documents, force_recreate=force_recreate)
+        _ids = await get_vector_db_service().aupsert_documents(documents=documents, force_recreate=force_recreate)
     except Exception as e:
         logger.error(f"Error upserting documents: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -83,7 +83,7 @@ async def search(query: str):
 @router.get("/collection/exists")
 async def collection_exists(collection_name: Optional[str] = None):
     '''Endpoint to check if the vector store collection exists.'''
-    db = VectorDBService()
+    db = get_vector_db_service()
     if not collection_name:
         collection_name = settings.VECTOR_COLLECTION
     exists = db._collection_exists(collection_name)
