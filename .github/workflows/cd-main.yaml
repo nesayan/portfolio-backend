@@ -1,0 +1,72 @@
+name: Deploy to Azure Container Apps
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AZURE_CONTAINER_APP: portfolio-backend
+  AZURE_RESOURCE_GROUP: rg-portfolio-dev-win
+  IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/portfolio-backend
+  TAG: latest
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ env.IMAGE }}:${{ env.TAG }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy to Azure Container Apps
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          resourceGroup: ${{ env.AZURE_RESOURCE_GROUP }}
+          containerAppName: ${{ env.AZURE_CONTAINER_APP }}
+          imageToDeploy: ${{ env.IMAGE }}:${{ env.TAG }}
+          registryUrl: docker.io
+          registryUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+          registryPassword: ${{ secrets.DOCKERHUB_TOKEN }}
+          environmentVariables: >
+            GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}
+            COHERE_API_KEY=${{ secrets.COHERE_API_KEY }}
+            AZURE_OPENAI_API_KEY=${{ secrets.AZURE_OPENAI_API_KEY }}
+            AZURE_OPENAI_ENDPOINT=${{ secrets.AZURE_OPENAI_ENDPOINT }}
+            AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
+            AZURE_OPENAI_API_VERSION=2024-12-01-preview
+            QDRANT_URL=${{ secrets.QDRANT_URL }}
+            QDRANT_API_KEY=${{ secrets.QDRANT_API_KEY }}
+            VECTOR_COLLECTION=portfolio
+            DATA_DIR=data
+            PORT=80
