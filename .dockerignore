@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.env
+core/.env
+.git/
+.gitignore
+notebooks/
+*.ipynb
+.vscode/
+.idea/
+tests/
+README.md
+Dockerfile
+.dockerignore
