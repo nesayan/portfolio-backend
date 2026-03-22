@@ -2,7 +2,7 @@ name: CD Pipeline - Deploy to Azure Container Apps
 
 on:
   workflow_run:
-    workflows: ["CI Pipeline - Lint, Test, and Build Docker Image"]
+    workflows: ["CI Pipeline"]
     branches: [main]
     types:
       - completed

@@ -1,11 +1,15 @@
-name: CI Pipeline - Lint, Test, and Build Docker Image
+name: CI Pipeline
 
 on:
   push:
-    branches: [main]
+    branches: [develop, main]
   pull_request:
-    branches: [main]
+    branches: [develop, main]
   workflow_dispatch:
+
+env:
+  IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/portfolio-backend
+  TAG_PREFIX: ${{ github.ref == 'refs/heads/develop' && 'dev-' || '' }}
 
 jobs:
   lint:
@@ -36,12 +40,12 @@ jobs:
       - name: Run tests
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          LLM_MODEL: llama-3.1-8b-instant
+          COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+          DEFAULT_LLM_PROVIDER: cohere
+          DEFAULT_EMBEDDING_PROVIDER: cohere
           QDRANT_API_KEY: ${{ secrets.QDRANT_API_KEY }}
           QDRANT_URL: ${{ secrets.QDRANT_URL }}
           VECTOR_COLLECTION: portfolio
-          EMBEDDING_MODEL: BAAI/bge-small-en-v1.5
-          EMBEDDING_PROVIDER: huggingface
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           DATA_DIR: data
           PYTHONPATH: ${{ github.workspace }}
@@ -50,7 +54,7 @@ jobs:
   docker:
     runs-on: ubuntu-latest
     needs: [lint, test]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v4
 
@@ -67,9 +71,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/portfolio-backend:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/portfolio-backend:${{ github.sha }}
+          tags: ${{ env.IMAGE }}:${{ env.TAG_PREFIX }}latest
 
       - name: Docker build summary
         run: |
@@ -77,6 +79,4 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Image ID:** ${{ steps.build.outputs.imageid }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Digest:** ${{ steps.build.outputs.digest }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Tags:**" >> $GITHUB_STEP_SUMMARY
-          echo "  - \`${{ secrets.DOCKERHUB_USERNAME }}/portfolio-backend:latest\`" >> $GITHUB_STEP_SUMMARY
-          echo "  - \`${{ secrets.DOCKERHUB_USERNAME }}/portfolio-backend:${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag:** \`${{ env.IMAGE }}:${{ env.TAG_PREFIX }}latest\`" >> $GITHUB_STEP_SUMMARY

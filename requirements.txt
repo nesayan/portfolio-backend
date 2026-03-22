@@ -8,21 +8,21 @@ fastapi>=0.115.0
 uvicorn[standard]>=0.30.0
 python-multipart
 
-# Vector Database and Embeddings
+# Vector Database
 qdrant-client
-langchain-huggingface
-sentence-transformers
 langchain_qdrant
-unstructured[pdf]
-unstructured_inference
 
 # For GenAI
-groq
+unstructured
+unstructured[pdf]
+unstructured_inference
 langchain
 langchain-text-splitters
 langchain-community
 langchain-mcp-adapters
 langchain-groq
+langchain-cohere
+langchain-openai
 langgraph
 ag-ui-protocol
 

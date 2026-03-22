@@ -1,26 +1,22 @@
 import uvicorn
 from contextlib import asynccontextmanager
-from pathlib import Path
 from fastapi import FastAPI
 from fastmcp.utilities.lifespan import combine_lifespans
 from fastapi.middleware.cors import CORSMiddleware
 
 from core.config import settings
+from core.logger import logger
 from api.routers import base, rag, agent
 
 from mcp_server.server import mcp
 
 
-def setup_environment():
-    Path(settings.DATA_DIR).mkdir(parents=True, exist_ok=True)
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    setup_environment()
+    settings._load_models()
     yield
 
-    print("Shutting down...")
+    logger.info("Shutting down...")
 
 
 mcp_app = mcp.http_app(path='/')
