@@ -1,4 +1,4 @@
-name: CI
+name: CI Pipeline - Lint, Test, and Build Docker Image
 
 on:
   push:
